@@ -1006,18 +1006,26 @@ func vertexCreds(a *cliproxyauth.Auth) (projectID, location string, serviceAccou
 	if raw, ok := a.Metadata["service_account"].(map[string]any); ok {
 		sa = raw
 	}
-	if sa == nil {
-		return "", "", nil, fmt.Errorf("vertex executor: missing service_account in credentials")
+	if sa != nil {
+		normalized, errNorm := vertexauth.NormalizeServiceAccountMap(sa)
+		if errNorm != nil {
+			return "", "", nil, fmt.Errorf("vertex executor: %w", errNorm)
+		}
+		saJSON, errMarshal := json.Marshal(normalized)
+		if errMarshal != nil {
+			return "", "", nil, fmt.Errorf("vertex executor: marshal service_account failed: %w", errMarshal)
+		}
+		return projectID, location, saJSON, nil
 	}
-	normalized, errNorm := vertexauth.NormalizeServiceAccountMap(sa)
-	if errNorm != nil {
-		return "", "", nil, fmt.Errorf("vertex executor: %w", errNorm)
+
+	if authorizedUser, ok := a.Metadata["authorized_user"].(map[string]any); ok && authorizedUser != nil {
+		credsJSON, errMarshal := json.Marshal(authorizedUser)
+		if errMarshal != nil {
+			return "", "", nil, fmt.Errorf("vertex executor: marshal authorized_user failed: %w", errMarshal)
+		}
+		return projectID, location, credsJSON, nil
 	}
-	saJSON, errMarshal := json.Marshal(normalized)
-	if errMarshal != nil {
-		return "", "", nil, fmt.Errorf("vertex executor: marshal service_account failed: %w", errMarshal)
-	}
-	return projectID, location, saJSON, nil
+	return "", "", nil, fmt.Errorf("vertex executor: missing service_account or authorized_user in credentials")
 }
 
 // vertexAPICreds extracts API key and base URL from auth attributes following the claudeCreds pattern.
