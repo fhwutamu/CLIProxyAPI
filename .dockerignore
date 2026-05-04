@@ -19,6 +19,7 @@ LICENSE
 auths/*
 logs/*
 conv/*
+keeper/*
 config.yaml
 
 # Development/editor
